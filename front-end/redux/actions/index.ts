@@ -3,6 +3,7 @@ import {
   USERS_DATA_STATE_CHANGE,
   USERS_POSTS_STATE_CHANGE,
   USER_FOLLOWING_STATE_CHANGE,
+  USERS_LIKES_STATE_CHANGE,
   USER_POSTS_STATE_CHANGE,
   USER_STATE_CHANGE,
   CLEAR_DATA,
@@ -125,7 +126,32 @@ export function fetchUserFollowingPosts(uid: string) {
           return { id, ...data, user };
         });
 
+        for (let i = 0; i < posts.length; i++) {
+          dispatch(fetchUserFollowingLikes(uid, posts[i].id));
+        }
+
         dispatch({ type: USERS_POSTS_STATE_CHANGE, posts, uid });
+      });
+  };
+}
+
+export function fetchUserFollowingLikes(uid: string, postId: string) {
+  return async (dispatch: any, getState: any) => {
+    firebase
+      .firestore()
+      .collection("posts")
+      .doc(uid)
+      .collection("userPosts")
+      .doc(postId)
+      .collection("likes")
+      .doc(firebase.auth().currentUser?.uid)
+      .onSnapshot((snapshot: any) => {
+        const postId = snapshot._delegate._key.path.segments[3];
+        let currentUserLike = false;
+        if (snapshot.exists) {
+          currentUserLike = true;
+        }
+        dispatch({ type: USERS_LIKES_STATE_CHANGE, postId, currentUserLike });
       });
   };
 }

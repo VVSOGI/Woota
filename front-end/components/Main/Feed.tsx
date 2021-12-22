@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { StyleSheet, Text, View, Image, FlatList } from "react-native";
+import { StyleSheet, Text, View, Image, FlatList, Button } from "react-native";
 
 import { connect } from "react-redux";
+
+import firebase from "firebase";
+require("firebase/firestore");
 
 const styles = StyleSheet.create({
   container: {
@@ -26,28 +29,40 @@ const Feed = (props: any) => {
   const [posts, setPosts] = useState<any[]>([]);
 
   useEffect(() => {
-    let posts: any[] = [];
-
     if (
       props.following !== undefined &&
       props.usersFollowingLoaded === props.following.length
     ) {
-      for (let i = 0; i < props.following.length; i++) {
-        const user = props.users.find(
-          (el: { uid: string }) => el.uid === props.following[i]
-        );
-        if (user !== undefined) {
-          posts = [...posts, ...user.posts];
-        }
-      }
-
-      posts.sort((x, y) => {
+      props.feed.sort((x: { creation: number }, y: { creation: number }) => {
         return x.creation - y.creation;
       });
-
-      setPosts(posts);
+      setPosts(props.feed);
     }
-  }, [props.usersFollowingLoaded]);
+  }, [props.usersFollowingLoaded, props.feed]);
+
+  const onLikePress = (uid: string, postId: string) => {
+    firebase
+      .firestore()
+      .collection("posts")
+      .doc(uid)
+      .collection("userPosts")
+      .doc(postId)
+      .collection("likes")
+      .doc(firebase.auth().currentUser?.uid)
+      .set({});
+  };
+
+  const onDislikePress = (uid: string, postId: string) => {
+    firebase
+      .firestore()
+      .collection("posts")
+      .doc(uid)
+      .collection("userPosts")
+      .doc(postId)
+      .collection("likes")
+      .doc(firebase.auth().currentUser?.uid)
+      .delete();
+  };
 
   if (posts === null) {
     return (
@@ -72,7 +87,17 @@ const Feed = (props: any) => {
                   style={styles.image}
                   source={{ uri: item.downloadURL }}
                 />
-
+                {item.currentUserLike ? (
+                  <Button
+                    title="Dislike"
+                    onPress={() => onDislikePress(item.user.uid, item.id)}
+                  />
+                ) : (
+                  <Button
+                    title="Like"
+                    onPress={() => onLikePress(item.user.uid, item.id)}
+                  />
+                )}
                 <Text
                   onPress={() => {
                     props.navigation.navigate("Comment", {
@@ -95,7 +120,7 @@ const Feed = (props: any) => {
 const mapStateToProps = (store: any) => ({
   currentUser: store.userState.currentUser,
   following: store.userState.following,
-  users: store.usersState.users,
+  feed: store.usersState.feed,
   usersFollowingLoaded: store.usersState.usersFollowingLoaded,
 });
 
